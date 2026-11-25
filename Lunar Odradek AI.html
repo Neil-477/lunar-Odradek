@@ -1,0 +1,437 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Lunar Odradek AI</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one mission console. Pipeline strip on top, scanner canvas left, controls and results right. Single dark look by choice. */
+:root{
+  --bg:#0a0c10; --panel:#10141a; --panel2:#151a22; --line:#232b36; --fg:#dde2e8; --mute:#8893a0;
+  --gold:#d9a84a; --safe:#4db487; --caution:#e8913a; --unsafe:#e2534e; --bone:#ebe6d6;
+  --display:'Big Shoulders Display','Arial Narrow',Impact,sans-serif;
+  --body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 var(--body);
+  padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1440px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 24px;border-bottom:1px solid var(--line);padding-bottom:14px}
+h1{font:800 clamp(30px,5vw,48px)/.95 var(--display);letter-spacing:.04em;text-transform:uppercase;margin:0;text-wrap:balance}
+h1 em{font-style:normal;color:var(--gold)}
+.tag{font:500 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+.meta{display:flex;flex-direction:column;gap:2px;text-align:right}
+@media(max-width:700px){.meta{text-align:left}}
+h2{font:600 13px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin:0 0 10px}
+.pipe{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
+.chip{flex:1 0 auto;min-width:104px;border:1px solid var(--line);background:var(--panel);padding:6px 9px;font:500 11px/1.3 var(--mono);color:var(--mute);letter-spacing:.04em;transition:.25s}
+.chip b{display:block;font:600 10px var(--mono);color:var(--mute);letter-spacing:.14em}
+.chip.on{border-color:var(--gold);color:var(--fg);background:var(--panel2)}
+.chip.on b{color:var(--gold)}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:16px;align-items:start}
+@media(max-width:1020px){.grid{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);padding:14px}
+.demo{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;border:1px solid var(--line);border-left:3px solid var(--gold);background:var(--panel);padding:10px 14px}
+.demo .cap{flex:1 1 280px;min-width:0}
+.demo .cap b{display:block;font:600 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+button,select,input{font:inherit;color:var(--fg)}
+button{cursor:pointer;background:var(--panel2);border:1px solid var(--line);padding:7px 12px;font:500 12px var(--mono);letter-spacing:.06em;text-transform:uppercase}
+button:hover{border-color:var(--gold)}
+button.pri{background:var(--gold);color:#16120a;border-color:var(--gold);font-weight:500}
+button:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.stagebox{position:relative;border:1px solid var(--line);background:#000;line-height:0}
+.stagebox canvas{width:100%;height:auto;display:block;touch-action:none}
+#ov{position:absolute;inset:0;cursor:crosshair}
+.bar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding-top:10px}
+.bar label{display:flex;align-items:center;gap:6px;font:12px var(--mono);color:var(--mute);cursor:pointer}
+.bar input{accent-color:var(--gold)}
+.hint{font:12px var(--mono);color:var(--mute)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font:11px var(--mono);color:var(--mute)}
+.legend i{display:inline-block;width:10px;height:10px;margin-right:5px;vertical-align:-1px}
+.field{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;margin-bottom:10px}
+.field label{font-size:12.5px}
+.field output{font:12px var(--mono);color:var(--gold)}
+.field input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--gold)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+input[type=number],select{width:100%;background:var(--panel2);border:1px solid var(--line);padding:6px 8px;font:13px var(--mono)}
+textarea{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--fg);font:12px/1.5 var(--mono);padding:8px;resize:vertical}
+.small{font-size:12px;color:var(--mute)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--panel2);padding:8px 10px;min-width:0}
+.stat span{display:block;font:11px var(--mono);color:var(--mute);letter-spacing:.06em;text-transform:uppercase}
+.stat b{font:800 26px/1.1 var(--display);letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.bargraph{display:flex;height:10px;margin-top:10px;background:var(--panel2)}
+.bargraph i{display:block;height:100%}
+.cand{display:grid;grid-template-columns:34px minmax(0,1fr);gap:4px 10px;padding:10px 0;border-top:1px solid var(--line)}
+.cand:first-of-type{border-top:0}
+.cand .ltr{grid-row:span 3;font:800 28px/1 var(--display);color:var(--gold)}
+.cand.approved .ltr{color:var(--safe)}.cand.rejected .ltr{color:var(--mute);text-decoration:line-through}
+.cand .t{display:flex;justify-content:space-between;gap:8px;font:500 12px var(--mono)}
+.cand .why{font-size:12px;color:var(--mute)}
+.cand .acts{display:flex;gap:6px;flex-wrap:wrap}
+.cand .acts button{padding:4px 9px;font-size:11px}
+.cand.sel{background:var(--panel2)}
+.score{font-variant-numeric:tabular-nums}
+#log{height:132px;overflow:auto;font:11.5px/1.6 var(--mono);color:var(--mute);background:var(--panel2);padding:8px}
+#log div b{color:var(--gold);font-weight:500}
+.insp{font:12px/1.6 var(--mono);min-height:4.8em;color:var(--fg)}
+.foot{font-size:12px;color:var(--mute);border-top:1px solid var(--line);padding-top:12px}
+@media(prefers-reduced-motion:reduce){.chip{transition:none}}
+</style>
+
+<div class="wrap">
+<header>
+  <div>
+    <div class="tag">Team Omega Core · Star Forge · Software track SW-1</div>
+    <h1>Lunar <em>Odradek</em> AI</h1>
+    <div class="tag" style="margin-top:6px">Scan the unknown · Detect the danger · Find safe ground</div>
+  </div>
+  <div class="meta tag"><span>Working prototype</span><span>Decision support, not a certified landing decision</span></div>
+</header>
+
+<div class="pipe" id="pipe" aria-label="Pipeline progress"></div>
+
+<div class="demo" id="demo">
+  <div class="cap"><b id="demoStep">Guided demo</b><span id="demoCap">Step through the pipeline from raw image to a human-reviewed landing recommendation.</span></div>
+  <div style="display:flex;gap:6px"><button id="dPrev">Back</button><button class="pri" id="dNext">Start demo</button></div>
+</div>
+
+<div class="grid">
+  <div class="col">
+    <div class="panel">
+      <div class="stagebox"><canvas id="base"></canvas><canvas id="ov" aria-label="Lunar surface scanner"></canvas></div>
+      <div class="bar">
+        <button class="pri" id="scanBtn">Run Odradek scan</button>
+        <button id="rescanBtn" disabled>Rescan selection</button>
+        <label><input type="checkbox" id="L_det" checked> Detections</label>
+        <label><input type="checkbox" id="L_haz" checked> Hazard map</label>
+        <label><input type="checkbox" id="L_cand" checked> Landing zones</label>
+        <label><input type="checkbox" id="L_grid"> Tile grid</label>
+      </div>
+      <div class="bar" style="padding-top:6px"><div class="legend">
+        <span><i style="background:var(--safe)"></i>Safe</span><span><i style="background:var(--caution)"></i>Caution</span><span><i style="background:var(--unsafe)"></i>Unsafe</span>
+        <span><i style="border:1px solid var(--bone)"></i>Boulder</span><span><i style="border:1px dashed var(--gold)"></i>Candidate</span></div></div>
+      <div class="hint" id="hint" style="padding-top:8px">Click the map to test a site. Drag to select a region for a focused rescan.</div>
+    </div>
+    <div class="panel"><h2>Inspector</h2><div class="insp" id="insp">Hover over the map.</div></div>
+    <div class="panel"><h2>Scan log</h2><div id="log"></div></div>
+  </div>
+
+  <div class="col">
+    <div class="panel">
+      <h2>Image source</h2>
+      <div class="row2">
+        <div><label class="small" for="preset">Synthetic scene</label>
+          <select id="preset"><option value="mare">Mare plain</option><option value="highland">Rugged highland</option><option value="polar">Polar, long shadows</option></select></div>
+        <div><label class="small" for="seed">Seed</label><input type="number" id="seed" value="7"></div>
+      </div>
+      <div class="row2" style="margin-top:8px">
+        <div><label class="small" for="gsd">Scale (m / pixel)</label><input type="number" id="gsd" value="0.5" step="0.05" min="0" placeholder="no metadata"></div>
+        <div><label class="small" for="file">Own image</label><input type="file" id="file" accept="image/*" style="font-size:11px;width:100%"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px"><button id="newScene">New scene</button></div>
+      <p class="small" style="margin:10px 0 0">Clear the scale field to simulate missing metadata. Sizes then switch off and the hazard map uses boulder density only.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Results</h2>
+      <div class="stats">
+        <div class="stat"><span>Boulders</span><b id="sN">0</b></div>
+        <div class="stat"><span>Largest</span><b id="sMax">–</b></div>
+        <div class="stat"><span>Mean conf.</span><b id="sConf">–</b></div>
+      </div>
+      <div class="bargraph" id="bar"></div>
+      <div class="small" id="barTxt" style="margin-top:6px"></div>
+      <canvas id="hist" width="340" height="110" style="width:100%;margin-top:10px;background:var(--panel2)"></canvas>
+      <div class="small" id="valid" style="margin-top:8px"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Detector and thresholds</h2>
+      <div class="field"><label for="T">Detection sensitivity</label><output id="Tv"></output><input type="range" id="T" min="6" max="30" value="9"></div>
+      <div class="field"><label for="minc">Minimum confidence</label><output id="mincv"></output><input type="range" id="minc" min="30" max="95" value="45"></div>
+      <div class="field"><label for="lim">Unsafe boulder size</label><output id="limv"></output><input type="range" id="lim" min="1" max="8" step="0.5" value="3.5"></div>
+      <div class="field"><label for="uc">Unsafe boulders per cell</label><output id="ucv"></output><input type="range" id="uc" min="2" max="10" value="4"></div>
+      <div class="field"><label for="cc">Caution boulders per cell</label><output id="ccv"></output><input type="range" id="cc" min="1" max="6" value="2"></div>
+      <div class="field"><label for="fp">Lander footprint</label><output id="fpv"></output><input type="range" id="fp" min="2" max="6" value="3"></div>
+      <p class="small" style="margin:0">One hazard cell is 32 px. The detector here is a classical bright/shadow filter that stands in for the YOLO model; the rest of the pipeline is unchanged when YOLO boxes replace it.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Landing zone ranking</h2>
+      <div id="target" class="small" style="margin-bottom:8px">No site selected. Click the map to check a specific spot.</div>
+      <div id="cands"></div>
+      <h2 style="margin-top:14px">Operator review</h2>
+      <textarea id="note" rows="2" placeholder="Operator note (included in the report)"></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button id="repBtn">Build scan report</button><button id="copyBtn" disabled>Copy report</button></div>
+      <textarea id="report" rows="9" readonly style="margin-top:8px;display:none"></textarea>
+    </div>
+  </div>
+</div>
+<div class="foot">Recommendations depend on image coverage, scale metadata and configurable thresholds. A qualified human makes the decision; nothing here commands a landing.</div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const TS=128, CS=32;
+let W=1024,H=640,L=null,D=null,gt=[],dets=[],done=null,cells=[],cols=0,rows=0,cands=[],review={},vis=[];
+let scanning=false,ring=0,origin={x:512,y:320},tiles=[],sel=null,target=null,hover=null,rescans=[],stage=0,selCand=null,synthetic=true;
+const base=$('base'),ov=$('ov'),reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+/* ---------- pipeline strip ---------- */
+const STAGES=['Collect images','Validate & prepare','Tile the image','Start scan','Detect boulders','Estimate size','Analyse terrain','Build hazard map','Rank zones','Human review'];
+$('pipe').innerHTML=STAGES.map((s,i)=>`<div class="chip" id="st${i}"><b>${i+1}</b>${s}</div>`).join('');
+function setStage(n){stage=n;STAGES.forEach((_,i)=>$('st'+i).classList.toggle('on',i<n))}
+
+function log(msg){const d=document.createElement('div');d.innerHTML=msg;const l=$('log');l.appendChild(d);l.scrollTop=l.scrollHeight;while(l.children.length>200)l.removeChild(l.firstChild)}
+
+/* ---------- synthetic lunar scene ---------- */
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const PRESET={mare:{cr:14,bo:90,base:122,shadow:1.5,crMax:80},highland:{cr:30,bo:210,base:132,shadow:1.9,crMax:70},polar:{cr:22,bo:150,base:84,shadow:3.4,crMax:75}};
+function boxBlur(src,w,h,r){const tmp=new Float32Array(w*h),out=new Float32Array(w*h),n=2*r+1,cl=(v,m)=>v<0?0:v>m?m:v;
+  for(let y=0;y<h;y++){let s=0;const o=y*w;for(let x=-r;x<=r;x++)s+=src[o+cl(x,w-1)];for(let x=0;x<w;x++){tmp[o+x]=s/n;s+=src[o+Math.min(w-1,x+r+1)]-src[o+Math.max(0,x-r)]}}
+  for(let x=0;x<w;x++){let s=0;for(let y=-r;y<=r;y++)s+=tmp[cl(y,h-1)*w+x];for(let y=0;y<h;y++){out[y*w+x]=s/n;s+=tmp[Math.min(h-1,y+r+1)*w+x]-tmp[Math.max(0,y-r)*w+x]}}
+  return out}
+function genScene(kind,seed){
+  const P=PRESET[kind],rnd=mulberry(seed*7919+13);W=1024;H=640;
+  const h=new Float32Array(W*H),craters=[];
+  for(let i=0;i<P.cr;i++){const R=8+Math.pow(rnd(),2.2)*P.crMax;craters.push({x:rnd()*W,y:rnd()*H,R,d:R*.26})}
+  for(const c of craters){const x0=Math.max(0,c.x-c.R*1.7|0),x1=Math.min(W,c.x+c.R*1.7|0),y0=Math.max(0,c.y-c.R*1.7|0),y1=Math.min(H,c.y+c.R*1.7|0);
+    for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const r=Math.hypot(x-c.x,y-c.y);let v=0;if(r<c.R)v=-c.d*(1-(r/c.R)**2);v+=c.d*.5*Math.exp(-(((r-c.R)/(.2*c.R))**2));h[y*W+x]+=v}}
+  const f=[];for(let i=0;i<6;i++)f.push([rnd()*6.28,rnd()*6.28,.004+rnd()*.012,.004+rnd()*.012,3+rnd()*5]);
+  const lum=new Float32Array(W*H);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const i=y*W+x,gx=(h[y*W+Math.min(W-1,x+1)]-h[y*W+Math.max(0,x-1)]);
+    let v=P.base+gx*20;for(const q of f)v+=Math.sin(x*q[2]+q[0])*Math.cos(y*q[3]+q[1])*q[4];
+    v+=(rnd()+rnd()+rnd()-1.5)*7;lum[i]=v}
+  gt=[];
+  const nb=Math.round(P.bo*(.85+rnd()*.3));
+  for(let k=0;k<nb;k++){
+    let x,y;if(rnd()<.6){const c=craters[rnd()*craters.length|0],a=rnd()*6.28,r=c.R*(.9+rnd()*.5);x=c.x+Math.cos(a)*r;y=c.y+Math.sin(a)*r}else{x=rnd()*W;y=rnd()*H}
+    const br=2+Math.pow(rnd(),2.2)*8;if(x<br+4||y<br+4||x>W-br-Math.max(8,br*4)||y>H-br-4)continue;
+    const Ls=br*(P.shadow*(.8+rnd()*.4));gt.push({x,y,r:br});
+    const bx0=Math.max(0,x-br-1|0),bx1=Math.min(W,x+br+Ls+br+2|0),by0=Math.max(0,y-br-1|0),by1=Math.min(H,y+br+2|0);
+    for(let yy=by0;yy<by1;yy++)for(let xx=bx0;xx<bx1;xx++){
+      const dx=xx-x,dy=yy-y,e=(dx*dx+dy*dy)/(br*br);let add=0;
+      if(e<1)add+=58*(1-.35*e)*(1-.25*(dx/br+1)/2*0)+ (dx<0?10:-8);
+      const sx=(dx-br-Ls/2)/(Ls/2+br*.2),sy=dy/(br*.9),se=sx*sx+sy*sy;
+      if(se<1&&dx>0)add-=52*(1-se*.5);
+      lum[yy*W+xx]+=add}}
+  L=lum;
+  const ctx=base.getContext('2d');base.width=W;base.height=H;ov.width=W;ov.height=H;
+  const id=ctx.createImageData(W,H);for(let i=0;i<W*H;i++){const v=Math.max(0,Math.min(255,L[i]));id.data[i*4]=v*1.02;id.data[i*4+1]=v;id.data[i*4+2]=v*.95;id.data[i*4+3]=255}
+  ctx.putImageData(id,0,0);synthetic=true;
+}
+function loadImage(file){
+  const img=new Image();img.onload=()=>{const s=Math.min(1,1024/img.width);W=Math.round(img.width*s);H=Math.round(img.height*s);
+    base.width=W;base.height=H;ov.width=W;ov.height=H;const c=base.getContext('2d');c.drawImage(img,0,0,W,H);
+    const d=c.getImageData(0,0,W,H).data;L=new Float32Array(W*H);for(let i=0;i<W*H;i++)L[i]=.3*d[i*4]+.59*d[i*4+1]+.11*d[i*4+2];
+    gt=[];synthetic=false;log('<b>collect</b> uploaded image '+W+'×'+H+' px');prepare();startScan(true)};
+  img.src=URL.createObjectURL(file)}
+
+/* ---------- validate, DoG, tiling ---------- */
+function prepare(){
+  const b2=boxBlur(L,W,H,2),b9=boxBlur(L,W,H,14);D=new Float32Array(W*H);for(let i=0;i<W*H;i++)D[i]=b2[i]-b9[i];
+  cols=Math.ceil(W/CS);rows=Math.ceil(H/CS);
+  const tx=Math.ceil(W/TS),ty=Math.ceil(H/TS);tiles=[];
+  for(let j=0;j<ty;j++)for(let i=0;i<tx;i++){const x0=i*TS,y0=j*TS,x1=Math.min(W,x0+TS),y1=Math.min(H,y0+TS);tiles.push({i,j,x0,y0,x1,y1,cx:(x0+x1)/2,cy:(y0+y1)/2,done:false})}
+  done=tiles;dets=[];rescans=[];sel=null;target=null;review={};
+  origin={x:W/2,y:H/2};setStage(3);
+  log('<b>validate</b> normalised luminance, built band-pass map');log('<b>tile</b> '+tiles.length+' tiles of '+TS+' px');
+}
+
+/* ---------- detector (stand-in for YOLO) ---------- */
+function detect(x0,y0,x1,y1,o){
+  const hl=12,rx0=Math.max(0,x0-hl),ry0=Math.max(0,y0-hl),rx1=Math.min(W,x1+hl),ry1=Math.min(H,y1+hl),w=rx1-rx0,hh=ry1-ry0;
+  const m=new Uint8Array(w*hh),m2=new Uint8Array(w*hh);
+  for(let y=0;y<hh;y++)for(let x=0;x<w;x++)if(Math.abs(D[(ry0+y)*W+rx0+x])>o.T)m[y*w+x]=1;
+  for(let y=0;y<hh;y++)for(let x=0;x<w;x++)if(m[y*w+x])for(let dx=-1;dx<=1;dx++){const xx=x+dx;if(xx>=0&&xx<w)m2[y*w+xx]=1}
+  const seen=new Uint8Array(w*hh),out=[],st=[];
+  for(let s=0;s<w*hh;s++){if(!m2[s]||seen[s])continue;
+    let area=0,pos=0,sum=0,sx=0,sy=0,mnx=1e9,mny=1e9,mxx=-1,mxy=-1;st.length=0;st.push(s);seen[s]=1;
+    while(st.length){const p=st.pop(),px=p%w,py=(p/w)|0;
+      if(m[p]){area++;const dv=D[(ry0+py)*W+rx0+px];sum+=Math.abs(dv);if(dv>0)pos++;sx+=px;sy+=py;if(px<mnx)mnx=px;if(px>mxx)mxx=px;if(py<mny)mny=py;if(py>mxy)mxy=py}
+      for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const xx=px+dx,yy=py+dy;if(xx<0||yy<0||xx>=w||yy>=hh)continue;const q=yy*w+xx;if(m2[q]&&!seen[q]){seen[q]=1;st.push(q)}}}
+    if(area<o.minArea||area>1800)continue;
+    const bw=mxx-mnx+1,bh=mxy-mny+1,cx=rx0+sx/area,cy=ry0+sy/area;
+    if(cx<x0||cx>=x1||cy<y0||cy>=y1)continue;
+    if(bh<3||bh>38||bw>80||bw/bh>3.8||bh/bw>3)continue;
+    const pf=pos/area;if(pf<.1||pf>.9)continue;
+    const c1=Math.min(1,Math.max(0,(sum/area-o.T)/(o.T*2.2))),c2=1-Math.abs(pf-.5)*2,c3=Math.min(1,area/(bw*bh)/.7);
+    const conf=Math.min(.99,.3+.7*(.5*c1+.3*c2+.2*c3));
+    out.push({x:rx0+mnx,y:ry0+mny,w:bw,h:bh,cx,cy,conf,area,rescan:!!o.rescan})}
+  return out}
+
+/* ---------- scan ---------- */
+function params(){return{T:+$('T').value,minArea:8}}
+function processTile(t){t.done=true;const r=detect(t.x0,t.y0,t.x1,t.y1,params());dets.push(...r.map(d=>({...d,tile:t.i+','+t.j})));
+  log(`<b>detect</b> tile ${t.i},${t.j} · ${r.length} boulder${r.length==1?'':'s'}`)}
+let lastT=0;
+function startScan(instant){
+  if(!L)return;tiles.forEach(t=>t.done=false);dets=[];rescans=[];review={};cands=[];ring=0;
+  if(instant||false){tiles.forEach(processTile);finish();return}
+  scanning=true;setStage(4);log('<b>scan</b> pulse started from the image centre');lastT=performance.now();requestAnimationFrame(loop)}
+function loop(t){
+  if(!scanning)return;const dt=Math.min(.05,(t-lastT)/1000);lastT=t;
+  const maxD=Math.hypot(W,H)/2+90;ring+=dt*maxD/(reduce?1.2:5.5);
+  let any=false;for(const q of tiles){if(!q.done&&Math.hypot(q.cx-origin.x,q.cy-origin.y)<=ring){processTile(q);any=true}}
+  if(any)analyze();draw();
+  if(tiles.every(q=>q.done)&&ring>maxD-80){scanning=false;finish();return}
+  requestAnimationFrame(loop)}
+function finish(){scanning=false;log('<b>scan</b> complete · '+dets.length+' raw detections');analyze();draw();$('rescanBtn').disabled=!sel}
+
+/* ---------- analysis: size, hazard map, ranking ---------- */
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function gsdVal(){const g=parseFloat($('gsd').value);return g>0?g:null}
+function analyze(){
+  const g=gsdVal(),minC=+$('minc').value/100,lim=+$('lim').value,uc=+$('uc').value,cc=+$('cc').value,fp=+$('fp').value;
+  $('Tv').textContent=$('T').value;$('mincv').textContent=minC.toFixed(2);$('limv').textContent=g?lim.toFixed(1)+' m':'off';$('ucv').textContent=uc;$('ccv').textContent=cc;$('fpv').textContent=fp+'×'+fp+' cells';
+  vis=dets.filter(d=>d.conf>=minC);vis.forEach((d,i)=>{d.id=i+1;d.m=g?d.h*g:null});
+  cells=[];for(let i=0;i<cols*rows;i++)cells.push({n:0,max:0,valid:false,cls:'safe',risk:0});
+  for(const t of tiles)if(t.done)for(let y=t.y0;y<t.y1;y+=CS)for(let x=t.x0;x<t.x1;x+=CS){const c=cells[((y/CS)|0)*cols+((x/CS)|0)];if(c)c.valid=true}
+  for(const d of vis){const c=cells[((d.cy/CS)|0)*cols+((d.cx/CS)|0)];if(!c)continue;c.n++;if(d.m!=null)c.max=Math.max(c.max,d.m)}
+  let cs=0,cm=0,cu=0,cv=0;
+  for(const c of cells){if(!c.valid)continue;cv++;
+    const sz=g?c.max/lim:0;c.risk=Math.min(1,Math.max(sz,c.n/uc));
+    c.cls=(g&&c.max>=lim)||c.n>=uc?'unsafe':((g&&c.max>=lim*.5)||c.n>=cc?'caution':'safe');
+    if(c.cls=='safe')cs++;else if(c.cls=='caution')cm++;else cu++}
+  // candidates
+  const w=[];for(let cy=1;cy+fp<rows;cy++)for(let cx=1;cx+fp<cols;cx++){
+    let s=0,mx=0,ok=true,nb=0,big=0;for(let j=0;j<fp&&ok;j++)for(let i=0;i<fp;i++){const c=cells[(cy+j)*cols+cx+i];if(!c.valid){ok=false;break}s+=c.risk;mx=Math.max(mx,c.risk);nb+=c.n;big=Math.max(big,c.max)}
+    if(!ok)continue;const score=100*(1-(.6*s/(fp*fp)+.4*mx));w.push({cx,cy,score,nb,big})}
+  w.sort((a,b)=>b.score-a.score);cands=[];
+  for(const q of w){if(cands.length>=5)break;if(cands.every(c=>Math.abs(c.cx-q.cx)>=fp||Math.abs(c.cy-q.cy)>=fp)){q.key=q.cx+','+q.cy;q.letter='ABCDE'[cands.length];cands.push(q)}}
+  if(target)evalTarget();
+  // stats
+  $('sN').textContent=vis.length;
+  const big=g&&vis.length?Math.max(...vis.map(d=>d.m)):null;$('sMax').textContent=big!=null?big.toFixed(1)+' m':(vis.length?Math.max(...vis.map(d=>d.h))+' px':'–');
+  $('sConf').textContent=vis.length?(vis.reduce((a,d)=>a+d.conf,0)/vis.length).toFixed(2):'–';
+  const tot=cv||1;$('bar').innerHTML=`<i style="width:${100*cs/tot}%;background:var(--safe)"></i><i style="width:${100*cm/tot}%;background:var(--caution)"></i><i style="width:${100*cu/tot}%;background:var(--unsafe)"></i>`;
+  $('barTxt').textContent=cv?`${Math.round(100*cs/tot)}% safe · ${Math.round(100*cm/tot)}% caution · ${Math.round(100*cu/tot)}% unsafe of scanned area`+(g?'':' (density only, no scale)'):'No area scanned yet.';
+  hist(g,lim);validate();renderCands();
+  if(!scanning&&dets.length){setStage(Object.values(review).some(Boolean)?10:(cands.length?9:8))}
+  else if(scanning)setStage(5)
+  draw()}
+function hist(g,lim){
+  const c=$('hist'),x=c.getContext('2d'),w=c.width,h=c.height;x.clearRect(0,0,w,h);
+  const vals=vis.map(d=>g?d.m:d.h),mx=Math.max(1,...vals,g?lim*1.2:10),bins=10,bw=(w-30)/bins,cnt=new Array(bins).fill(0);
+  vals.forEach(v=>cnt[Math.min(bins-1,(v/mx*bins)|0)]++);const top=Math.max(1,...cnt);
+  cnt.forEach((n,i)=>{const bh=(h-30)*n/top,hi=g&&(i*mx/bins)>=lim;x.fillStyle=hi?css('--unsafe'):css('--bone');x.globalAlpha=hi?.9:.55;x.fillRect(20+i*bw+2,h-20-bh,bw-4,bh)});x.globalAlpha=1;
+  x.fillStyle=css('--mute');x.font='10px IBM Plex Mono, monospace';x.textAlign='left';x.fillText('0',20,h-6);x.textAlign='right';x.fillText(mx.toFixed(1)+(g?' m':' px'),w-10,h-6);x.textAlign='left';x.fillText('boulder size distribution',20,11);
+  if(g){const lx=20+lim/mx*(w-30);x.strokeStyle=css('--gold');x.setLineDash([3,3]);x.beginPath();x.moveTo(lx,16);x.lineTo(lx,h-20);x.stroke();x.setLineDash([])}}
+function validate(){
+  const el=$('valid');if(!synthetic||!gt.length||!tiles.every(t=>t.done)){el.textContent=synthetic?'':'Uploaded image: no ground truth, so precision and recall are not computed.';return}
+  const used=new Set();let tp=0;for(const d of vis){let b=-1,bd=1e9;gt.forEach((q,i)=>{if(used.has(i))return;const dd=Math.hypot(q.x-d.cx,q.y-d.cy);if(dd<q.r+3&&dd<bd){bd=dd;b=i}});if(b>=0){used.add(b);tp++}}
+  const big=gt.filter(q=>q.r>=3),bigHit=big.filter(q=>used.has(gt.indexOf(q))).length;
+  el.innerHTML=`Check against the synthetic ground truth (${gt.length} placed): precision <b style="color:var(--gold)">${vis.length?Math.round(100*tp/vis.length):0}%</b>, recall <b style="color:var(--gold)">${Math.round(100*used.size/gt.length)}%</b>, recall on boulders over 6 px <b style="color:var(--gold)">${big.length?Math.round(100*bigHit/big.length):0}%</b>.`}
+
+/* ---------- candidates, target, review ---------- */
+function where(cx,cy,fp){const x=(cx+fp/2)*CS,y=(cy+fp/2)*CS,g=gsdVal();if(!g)return`px (${Math.round(x)}, ${Math.round(y)})`;const dx=(x-W/2)*g,dy=(H/2-y)*g;return`${dx>=0?'E':'W'} ${Math.abs(dx).toFixed(0)} m, ${dy>=0?'N':'S'} ${Math.abs(dy).toFixed(0)} m`}
+function renderCands(){
+  const fp=+$('fp').value,el=$('cands');
+  if(!cands.length){el.innerHTML='<div class="small">Zones appear once enough of the image has been scanned.</div>';return}
+  el.innerHTML=cands.map(c=>{const r=review[c.key]||'',cls=r+(selCand==c.key?' sel':'');
+    const why=c.nb?`${c.nb} boulder${c.nb>1?'s':''} inside`+(c.big?`, largest ${c.big.toFixed(1)} m`:''):'No boulders detected inside';
+    return`<div class="cand ${cls}" data-k="${c.key}"><div class="ltr">${c.letter}</div><div class="t"><span>${where(c.cx,c.cy,fp)}</span><span class="score" style="color:${c.score>75?'var(--safe)':c.score>50?'var(--caution)':'var(--unsafe)'}">safety ${Math.round(c.score)}</span></div>
+      <div class="why">${why}</div><div class="acts"><button data-a="show">Show</button><button data-a="approved">Approve</button><button data-a="rejected">Reject</button>${r?`<span class="small" style="align-self:center">${r==='approved'?'Approved by operator':'Rejected by operator'}</span>`:'<span class="small" style="align-self:center">Awaiting review</span>'}</div></div>`}).join('')}
+$('cands').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const k=b.closest('.cand').dataset.k;
+  if(b.dataset.a==='show')selCand=selCand==k?null:k;else{review[k]=review[k]===b.dataset.a?'':b.dataset.a;log(`<b>review</b> zone ${cands.find(c=>c.key==k).letter} ${review[k]||'cleared'}`)}
+  renderCands();draw();setStage(Object.values(review).some(Boolean)?10:9)});
+function winAt(px,py){const fp=+$('fp').value;let cx=clamp(Math.round(px/CS-fp/2),0,cols-fp),cy=clamp(Math.round(py/CS-fp/2),0,rows-fp);
+  let s=0,mx=0,nb=0,big=0,ok=true;for(let j=0;j<fp;j++)for(let i=0;i<fp;i++){const c=cells[(cy+j)*cols+cx+i];if(!c.valid)ok=false;s+=c.risk;mx=Math.max(mx,c.risk);nb+=c.n;big=Math.max(big,c.max)}
+  return{cx,cy,fp,ok,nb,big,score:100*(1-(.6*s/(fp*fp)+.4*mx))}}
+function evalTarget(){
+  const w=winAt(target.x,target.y);target.w=w;if(!w.ok){$('target').textContent='Target is in an area not yet scanned.';return}
+  const cls=w.score>75?'safe':w.score>50?'caution':'unsafe',col=`var(--${cls})`;
+  let alt='';const better=cands.filter(c=>c.score>w.score+5).sort((a,b)=>Math.hypot(a.cx-w.cx,a.cy-w.cy)-Math.hypot(b.cx-w.cx,b.cy-w.cy))[0];
+  if(w.score<=75&&better){const d=Math.hypot(better.cx-w.cx,better.cy-w.cy)*CS,g=gsdVal();alt=` Nearest better zone: <b style="color:var(--gold)">${better.letter}</b> (${g?Math.round(d*g)+' m':Math.round(d)+' px'} away, safety ${Math.round(better.score)}).`}
+  $('target').innerHTML=`Selected site: safety <b style="color:${col}">${Math.round(w.score)} (${cls})</b>, ${w.nb} boulder${w.nb==1?'':'s'} inside${w.big?`, largest ${w.big.toFixed(1)} m`:''}.${alt}`}
+
+/* ---------- focused rescan ---------- */
+$('rescanBtn').onclick=()=>{if(!sel)return;
+  const x0=Math.round(Math.min(sel.x0,sel.x1)),x1=Math.round(Math.max(sel.x0,sel.x1)),y0=Math.round(Math.min(sel.y0,sel.y1)),y1=Math.round(Math.max(sel.y0,sel.y1));
+  const before=dets.filter(d=>d.cx>=x0&&d.cx<x1&&d.cy>=y0&&d.cy<y1).length;
+  dets=dets.filter(d=>!(d.cx>=x0&&d.cx<x1&&d.cy>=y0&&d.cy<y1));
+  const r=detect(x0,y0,x1,y1,{T:Math.max(5,+$('T').value*.65),minArea:5,rescan:true});dets.push(...r.map(d=>({...d,tile:'R'})));
+  rescans.push({x0,y0,x1,y1});log(`<b>rescan</b> region ${x1-x0}×${y1-y0} px at higher sensitivity · ${before} → ${r.length} boulders`);
+  sel=null;$('rescanBtn').disabled=true;analyze()};
+
+/* ---------- drawing ---------- */
+function draw(){
+  const c=ov.getContext('2d');c.clearRect(0,0,W,H);if(!tiles.length)return;
+  c.fillStyle='rgba(6,8,11,.8)';for(const t of tiles)if(!t.done)c.fillRect(t.x0,t.y0,t.x1-t.x0,t.y1-t.y0);
+  if($('L_haz').checked){const col={safe:'77,180,135',caution:'232,145,58',unsafe:'226,83,78'};
+    for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){const k=cells[j*cols+i];if(!k||!k.valid)continue;c.fillStyle=`rgba(${col[k.cls]},${k.cls=='safe'?.14:.34})`;c.fillRect(i*CS,j*CS,CS,CS)}}
+  if($('L_grid').checked){c.strokeStyle='rgba(217,168,74,.35)';c.lineWidth=1;c.beginPath();for(let x=0;x<=W;x+=TS){c.moveTo(x+.5,0);c.lineTo(x+.5,H)}for(let y=0;y<=H;y+=TS){c.moveTo(0,y+.5);c.lineTo(W,y+.5)}c.stroke()}
+  if($('L_det').checked){const lim=+$('lim').value,g=gsdVal();c.lineWidth=2;
+    for(const d of vis){const un=g&&d.m>=lim;c.strokeStyle=un?'#ff6d66':`rgba(235,230,214,${.55+.45*d.conf})`;if(d.rescan)c.strokeStyle=un?'#ff6d66':'#7fd6e8';c.strokeRect(d.x-2,d.y-2,d.w+4,d.h+4);
+      if(un){c.fillStyle='#ff6d66';c.font='bold 13px IBM Plex Mono, monospace';c.fillText(d.m.toFixed(1)+'m',d.x-2,d.y-6)}}}
+  for(const r of rescans){c.strokeStyle='#7fd6e8';c.lineWidth=1.5;c.setLineDash([4,4]);c.strokeRect(r.x0,r.y0,r.x1-r.x0,r.y1-r.y0);c.setLineDash([])}
+  if($('L_cand').checked){const fp=+$('fp').value;for(const q of cands){const r=review[q.key],x=q.cx*CS,y=q.cy*CS,s=fp*CS;
+    c.lineWidth=selCand==q.key?4:2.5;c.strokeStyle=r==='approved'?'#4db487':r==='rejected'?'#8893a0':'#d9a84a';c.setLineDash(r?[]:[8,5]);c.strokeRect(x,y,s,s);c.setLineDash([]);
+    c.fillStyle=c.strokeStyle;c.fillRect(x,y,24,22);c.fillStyle='#0a0c10';c.font='bold 17px Big Shoulders Display, Arial Narrow, sans-serif';c.textAlign='center';c.fillText(q.letter,x+12,y+17);c.textAlign='left'}}
+  if(target&&target.w&&target.w.ok){const w=target.w,s=w.fp*CS;c.strokeStyle='#ffffff';c.lineWidth=2;c.strokeRect(w.cx*CS,w.cy*CS,s,s);const cx=target.x,cy=target.y;c.beginPath();c.moveTo(cx-10,cy);c.lineTo(cx+10,cy);c.moveTo(cx,cy-10);c.lineTo(cx,cy+10);c.stroke()}
+  if(sel){c.strokeStyle='#7fd6e8';c.lineWidth=2;c.setLineDash([6,4]);c.strokeRect(sel.x0,sel.y0,sel.x1-sel.x0,sel.y1-sel.y0);c.setLineDash([])}
+  if(scanning){for(let k=0;k<3;k++){const r=ring-k*7;if(r<=0)continue;c.strokeStyle=`rgba(217,168,74,${.9-k*.3})`;c.lineWidth=3-k;c.beginPath();c.arc(origin.x,origin.y,r,0,6.283);c.stroke()}}
+}
+
+/* ---------- pointer ---------- */
+function pt(e){const r=ov.getBoundingClientRect();return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height}}
+let drag=null;
+ov.addEventListener('pointerdown',e=>{if(scanning)return;ov.setPointerCapture(e.pointerId);const p=pt(e);drag={x:p.x,y:p.y,moved:false}});
+ov.addEventListener('pointermove',e=>{const p=pt(e);
+  if(drag){if(Math.hypot(p.x-drag.x,p.y-drag.y)>6)drag.moved=true;if(drag.moved){sel={x0:drag.x,y0:drag.y,x1:p.x,y1:p.y};draw()}return}
+  const d=vis.find(d=>p.x>=d.x-3&&p.x<=d.x+d.w+3&&p.y>=d.y-3&&p.y<=d.y+d.h+3),g=gsdVal(),c=cells[((p.y/CS)|0)*cols+((p.x/CS)|0)];
+  $('insp').innerHTML=(d?`Boulder #${d.id} · tile ${d.tile}<br>box ${d.w}×${d.h} px · confidence ${d.conf.toFixed(2)}<br>est. size ${d.m!=null?d.m.toFixed(1)+' m':'unavailable (no scale metadata)'}`:'No boulder under cursor')+(c&&c.valid?`<br>cell: ${c.n} boulder${c.n==1?'':'s'} · ${c.cls}`:'<br>cell: not scanned')});
+ov.addEventListener('pointerup',e=>{if(!drag)return;const p=pt(e);
+  if(drag.moved){const w=Math.abs(sel.x1-sel.x0),h=Math.abs(sel.y1-sel.y0);if(w<24||h<24){sel=null}else{$('rescanBtn').disabled=false;$('hint').textContent='Region selected. Press “Rescan selection” to run a finer pass over it.'}}
+  else if(cells.length){target={x:p.x,y:p.y};evalTarget();sel=null;$('rescanBtn').disabled=true}
+  drag=null;draw()});
+
+/* ---------- report ---------- */
+$('repBtn').onclick=()=>{const g=gsdVal(),fp=+$('fp').value,now=new Date().toISOString().slice(0,16).replace('T',' ');
+  const lines=['LUNAR ODRADEK AI · SCAN REPORT','Generated '+now+' UTC · Team Omega Core','',
+   `Scene: ${synthetic?$('preset').selectedOptions[0].text+' (synthetic, seed '+$('seed').value+')':'uploaded image'} · ${W}×${H} px · scale ${g?g+' m/px':'not available'}`,
+   `Detections kept: ${vis.length} (min confidence ${(+$('minc').value/100).toFixed(2)}, sensitivity ${$('T').value})`,
+   `Thresholds: unsafe size ${g?$('lim').value+' m':'off'}, unsafe ${$('uc').value}/cell, caution ${$('cc').value}/cell, footprint ${fp}×${fp} cells`,'',
+   'Ranked landing zones:',...cands.map(c=>`  ${c.letter}  safety ${Math.round(c.score)}  ${where(c.cx,c.cy,fp)}  ${c.nb} boulders  ·  ${review[c.key]?review[c.key].toUpperCase():'NOT REVIEWED'}`),'',
+   'Operator note: '+($('note').value||'(none)'),'','Decision support only. A qualified human makes the landing decision.'];
+  const r=$('report');r.style.display='block';r.value=lines.join('\n');$('copyBtn').disabled=false;log('<b>report</b> built')};
+$('copyBtn').onclick=async()=>{const r=$('report');try{await navigator.clipboard.writeText(r.value);$('copyBtn').textContent='Copied'}catch(e){r.select();$('copyBtn').textContent='Selected, press copy'}setTimeout(()=>$('copyBtn').textContent='Copy report',1800)};
+
+/* ---------- controls ---------- */
+['T','minc','lim','uc','cc','fp','gsd'].forEach(id=>$(id).addEventListener('input',()=>{
+  if(id==='T'&&dets.length&&!scanning){dets=[];tiles.forEach(processTile);rescans=[]}
+  analyze()}));
+['L_det','L_haz','L_cand','L_grid'].forEach(id=>$(id).addEventListener('change',draw));
+function newScene(replay){const seed=+$('seed').value||1;genScene($('preset').value,seed);prepare();log(`<b>collect</b> synthetic ${$('preset').selectedOptions[0].text}, seed ${seed}`);selCand=null;$('report').style.display='none';startScan(!replay)}
+$('newScene').onclick=()=>{$('seed').value=(+$('seed').value||0)+1;newScene(false)};
+$('preset').onchange=()=>newScene(false);$('seed').onchange=()=>newScene(false);
+$('file').onchange=e=>{if(e.target.files[0])loadImage(e.target.files[0])};
+$('scanBtn').onclick=()=>{if(!scanning){selCand=null;startScan(false)}};
+
+/* ---------- guided demo ---------- */
+const STEPS=[
+ {t:'1 of 5 · Scan',c:'The pulse sweeps outward from the centre. Each tile is processed as the ring reaches it, and only processed areas are revealed.',l:[1,0,0,1],run:()=>startScan(false)},
+ {t:'2 of 5 · Detect and size',c:'Every boulder gets a box and a confidence score. Sizes in metres come from the image scale; red labels mark boulders over the unsafe limit.',l:[1,0,0,0]},
+ {t:'3 of 5 · Hazard map',c:'Each 32 px cell is classed safe, caution or unsafe from boulder size and density. Move the threshold sliders and the map updates live.',l:[1,1,0,0]},
+ {t:'4 of 5 · Ranked landing zones',c:'Footprint-sized windows are scored and the best non-overlapping five are ranked. Click anywhere on the map to test your own site and get the nearest better zone.',l:[0,1,1,0]},
+ {t:'5 of 5 · Human review',c:'Nothing lands itself. The operator approves or rejects each zone, adds a note, and builds the scan report. Drag a box over any region to rescan it more finely.',l:[1,1,1,0],run:()=>{if(cands[0])selCand=cands[0].key;renderCands()}}];
+let ds=-1;
+function demo(n){ds=clamp(n,-1,STEPS.length-1);
+  if(ds<0){$('demoStep').textContent='Guided demo';$('demoCap').textContent='Step through the pipeline from raw image to a human-reviewed landing recommendation.';$('dNext').textContent='Start demo';return}
+  const s=STEPS[ds];$('demoStep').textContent=s.t;$('demoCap').textContent=s.c;['L_det','L_haz','L_cand','L_grid'].forEach((id,i)=>$(id).checked=!!s.l[i]);
+  $('dNext').textContent=ds==STEPS.length-1?'Restart':'Next';if(s.run)s.run();draw()}
+$('dNext').onclick=()=>{if(scanning)return;demo(ds==STEPS.length-1?0:ds+1)};
+$('dPrev').onclick=()=>{if(!scanning)demo(ds-1)};
+
+/* ---------- boot ---------- */
+newScene(false);
+window.__odradek={get dets(){return dets},get vis(){return vis},get cands(){return cands},get gt(){return gt}};
+</script>
+
+</body></html>
